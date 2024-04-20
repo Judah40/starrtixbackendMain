@@ -1,13 +1,14 @@
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate,get_user_model
 from rest_framework.authtoken.models import Token
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status,generics,viewsets,permissions
 from .serializer import RegisterSerializer
+from rest_framework.decorators import action
 
-
+User = get_user_model()
 class RegisterView(APIView):
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -47,3 +48,30 @@ class UserDetailView(APIView):
            raise Http404
 
 
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = RegisterSerializer
+    permission_classes = [permissions.IsAdminUser] 
+    
+    @action(detail=False, method=['post'])
+    def custom_create(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        if not queryset.exists():
+            # No data found, returning 401 Unauthorized
+            return Response({"detail": "No data found."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        page = self.paginate_queryset(queryset)
+        if page is not limited:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+        serializer= self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            user=serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
